@@ -81,7 +81,12 @@
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(`HTTP ${response.status}${text ? ': ' + text.substring(0, 100) : ''}`);
+      let detail = text;
+      try {
+        const parsed = JSON.parse(text);
+        if (typeof parsed.error === 'string') detail = parsed.error;
+      } catch (_) { /* не JSON — оставляем как есть */ }
+      throw new Error(`HTTP ${response.status}${detail ? ': ' + detail.substring(0, 100) : ''}`);
     }
 
     const data = await response.json();

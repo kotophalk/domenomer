@@ -1,15 +1,50 @@
 #!/usr/bin/env python3
-"""Minimal proxy server for Ahrefs DR API (CORS bypass). Zero dependencies."""
+"""Minimal proxy server for Ahrefs DR API (CORS bypass + API key). Zero dependencies."""
 
 import http.server
 import urllib.request
 import urllib.parse
+import urllib.error
 import json
 import os
 
 PORT = 3000
 AHREFS_API = "https://api.ahrefs.com/v3/public/domain-rating-free"
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_FILE = os.path.join(STATIC_DIR, ".env")
+
+
+def load_env_file(path):
+    """Читает KEY=VALUE из .env, не перезаписывая уже заданные переменные окружения."""
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
+load_env_file(ENV_FILE)
+API_KEY = os.environ.get("AHREFS_API_KEY", "").strip()
+
+
+def _ahrefs_error_text(body):
+    """Превращает тело ошибки Ahrefs в строку.
+
+    Встречаются форматы: ["Error", "Unauthorized"], {"error": "..."}, произвольный текст.
+    """
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return body
+    if isinstance(data, dict):
+        data = data.get("error", body)
+    if isinstance(data, list):
+        return ": ".join(str(x) for x in data)
+    return str(data)
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -35,12 +70,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json_response(400, {"error": "missing target"})
             return
 
+        if not API_KEY:
+            self._json_response(500, {"error": "Не задан AHREFS_API_KEY (см. .env.example)"})
+            return
+
         api_url = f"{AHREFS_API}?target={urllib.parse.quote(target)}&output=json"
 
         try:
             req = urllib.request.Request(api_url, headers={
                 "User-Agent": "BulkDRChecker/1.0",
                 "Accept": "application/json",
+                "Authorization": f"Bearer {API_KEY}",
             })
             with urllib.request.urlopen(req, timeout=15) as resp:
                 body = resp.read()
@@ -51,7 +91,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(body)
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
-            self._json_response(e.code, {"error": body[:200]})
+            self._json_response(e.code, {"error": _ahrefs_error_text(body)[:200]})
         except Exception as e:
             self._json_response(502, {"error": str(e)})
 
@@ -91,7 +131,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"\n  ⚡ DR Checker запущен: http://localhost:{PORT}\n")
+    print(f"\n  ⚡ DR Checker запущен: http://localhost:{PORT}")
+    if API_KEY:
+        print(f"  🔑 AHREFS_API_KEY: ...{API_KEY[-4:]}\n")
+    else:
+        print("  ⚠️  AHREFS_API_KEY не задан — проверка DR работать не будет.")
+        print("     Скопируйте .env.example в .env и впишите ключ Ahrefs APIv3.\n")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
