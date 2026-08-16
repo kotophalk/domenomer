@@ -15,6 +15,7 @@
   const progressLabel = document.getElementById('progress-label');
   const progressCount = document.getElementById('progress-count');
   const progressBar = document.getElementById('progress-bar');
+  const stopBtn = document.getElementById('stop-btn');
 
   const resultsSection = document.getElementById('results-section');
   const resultsBody = document.getElementById('results-body');
@@ -41,11 +42,22 @@
   let isRunning = false;
   let pausedUntil = 0;   // глобальная пауза очереди после 429 (timestamp)
   let pauseTimer = null; // таймер обратного отсчёта паузы в UI
+  let abortController = null; // «Стоп»: обрывает запросы в полёте и сон воркеров
 
   // --- Helpers ---
 
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // Сон, который можно прервать через AbortSignal (для кнопки «Стоп»)
+  function sleep(ms, signal) {
+    return new Promise(resolve => {
+      if (signal?.aborted) { resolve(); return; }
+      const timer = setTimeout(done, ms);
+      function done() {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', done);
+        resolve();
+      }
+      signal?.addEventListener('abort', done, { once: true });
+    });
   }
 
   function parseRetryAfter(value) {
@@ -98,9 +110,9 @@
 
   // --- API ---
 
-  async function fetchDR(domain) {
+  async function fetchDR(domain, signal) {
     const url = `${API_URL}?target=${encodeURIComponent(domain)}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal });
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
@@ -133,10 +145,14 @@
 
     isRunning = true;
     checkBtn.disabled = true;
+    stopBtn.disabled = false;
+    stopBtn.classList.remove('hidden');
     results = [];
     pausedUntil = 0;
     clearInterval(pauseTimer);
     pauseTimer = null;
+    abortController = new AbortController();
+    const signal = abortController.signal;
 
     // Init results array
     domains.forEach((domain, i) => {
@@ -163,24 +179,27 @@
     let lastStartAt = 0;
 
     async function waitForSlot() {
-      for (;;) {
+      while (!signal.aborted) {
         const now = Date.now();
         const wait = Math.max(lastStartAt + MIN_INTERVAL_MS, pausedUntil) - now;
         if (wait <= 0) break;
-        await sleep(wait);
+        await sleep(wait, signal);
       }
       lastStartAt = Date.now();
     }
 
+    // При остановке возвращается, оставив r.status === 'pending'
     async function checkOne(r) {
       for (let attempt = 0; ; attempt++) {
         await waitForSlot();
+        if (signal.aborted) return;
         try {
-          const data = await fetchDR(r.domain);
+          const data = await fetchDR(r.domain, signal);
           r.dr = data.dr;
           r.status = 'ok';
           return;
         } catch (err) {
+          if (signal.aborted) return;
           if (err.status === 429 && attempt < MAX_RETRIES) {
             const backoff = err.retryAfterMs != null
               ? Math.max(err.retryAfterMs, 1000)
@@ -198,9 +217,10 @@
     }
 
     async function worker() {
-      while (nextIndex < domains.length) {
+      while (nextIndex < domains.length && !signal.aborted) {
         const r = results[nextIndex++];
         await checkOne(r);
+        if (r.status === 'pending') break; // прервано кнопкой «Стоп»
         completed++;
         updateProgress(completed, domains.length);
         renderTable();
@@ -210,11 +230,28 @@
     const workerCount = Math.min(MAX_CONCURRENCY, domains.length);
     await Promise.all(Array.from({ length: workerCount }, worker));
 
-    // Done
-    progressLabel.textContent = 'Готово!';
+    // Done (или остановлено)
+    const stopped = signal.aborted;
+    results.forEach(r => {
+      if (r.status === 'pending') r.status = 'skipped';
+    });
+    clearInterval(pauseTimer);
+    pauseTimer = null;
+    pausedUntil = 0;
+    abortController = null;
+    progressLabel.textContent = stopped ? 'Остановлено' : 'Готово!';
     isRunning = false;
     checkBtn.disabled = false;
+    stopBtn.classList.add('hidden');
+    renderTable();
     renderSummary();
+  }
+
+  function stopCheck() {
+    if (!isRunning || !abortController) return;
+    stopBtn.disabled = true;
+    progressLabel.textContent = 'Останавливаю...';
+    abortController.abort();
   }
 
   function pauseAll(ms) {
@@ -239,7 +276,7 @@
     const pct = total > 0 ? (done / total) * 100 : 0;
     progressBar.style.width = `${pct}%`;
     progressCount.textContent = `${done} / ${total}`;
-    if (done < total && Date.now() >= pausedUntil) {
+    if (done < total && Date.now() >= pausedUntil && !abortController?.signal.aborted) {
       progressLabel.textContent = 'Проверка...';
     }
   }
@@ -328,6 +365,8 @@
         tdStatus.innerHTML = '<span class="status-ok">✓ OK</span>';
       } else if (r.status === 'error') {
         tdStatus.innerHTML = `<span class="status-error" title="${escapeHtml(r.error || '')}">✗ Ошибка</span>`;
+      } else if (r.status === 'skipped') {
+        tdStatus.innerHTML = '<span class="status-skipped" title="Проверка остановлена">— Не проверен</span>';
       } else if (r.retries > 0) {
         tdStatus.innerHTML = `<span class="status-pending" title="Повтор после 429">⏳ повтор ${r.retries}</span>`;
       } else {
@@ -351,6 +390,7 @@
     const total = results.length;
     const ok = results.filter(r => r.status === 'ok').length;
     const errors = results.filter(r => r.status === 'error').length;
+    const skipped = results.filter(r => r.status === 'skipped').length;
     const drValues = results.filter(r => r.dr !== null).map(r => r.dr);
     const avgDr = drValues.length > 0 ? (drValues.reduce((a, b) => a + b, 0) / drValues.length).toFixed(1) : '—';
     const maxDr = drValues.length > 0 ? Math.max(...drValues) : '—';
@@ -360,6 +400,7 @@
       <span class="stat">Всего: <span class="stat-value">${total}</span></span>
       <span class="stat">Успешно: <span class="stat-value">${ok}</span></span>
       <span class="stat">Ошибок: <span class="stat-value">${errors}</span></span>
+      ${skipped > 0 ? `<span class="stat">Не проверено: <span class="stat-value">${skipped}</span></span>` : ''}
       <span class="stat">Средний DR: <span class="stat-value">${avgDr}</span></span>
       <span class="stat">Мин / Макс: <span class="stat-value">${minDr} / ${maxDr}</span></span>
     `;
@@ -394,7 +435,10 @@
       r.index,
       r.domain,
       r.dr !== null ? r.dr : '',
-      r.status === 'ok' ? 'OK' : r.status === 'error' ? `Error: ${r.error || ''}` : 'Pending',
+      r.status === 'ok' ? 'OK'
+        : r.status === 'error' ? `Error: ${r.error || ''}`
+        : r.status === 'skipped' ? 'Skipped'
+        : 'Pending',
     ]);
 
     const csv = [headers, ...rows]
@@ -440,6 +484,13 @@
 
   checkBtn.addEventListener('click', () => {
     if (!isRunning) runCheck();
+  });
+
+  stopBtn.addEventListener('click', stopCheck);
+
+  // Esc — остановить проверку
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isRunning) stopCheck();
   });
 
   // Sort headers

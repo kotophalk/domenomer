@@ -45,7 +45,8 @@ python3 server.py
 1. `parseDomains` → `uniqueDomains`: разбор textarea (разделители: перевод строки, `,`, `;`), срезание схемы/пути/`www.`, дедупликация.
 2. `runCheck`: массив `results` инициализируется со статусом `pending`, затем запросы к `/api/dr` идут через пул воркеров (`MAX_CONCURRENCY`) с паузой `MIN_INTERVAL_MS` между стартами — это укладывает поток в лимит Ahrefs 60 запросов/мин (`RATE_LIMIT_PER_MIN`). При 429 `pauseAll` ставит **общую паузу для всех воркеров** (по `Retry-After`, иначе экспоненциальный backoff от `BACKOFF_BASE_MS`) и домен повторяется до `MAX_RETRIES` раз; другие HTTP-ошибки не повторяются. Все эти константы — в начале `app.js`. После каждого результата — `updateProgress` + полный `renderTable`.
 3. Ответ Ahrefs читается по пути `data.domain_rating.domain_rating`; при отсутствии — `dr: null`.
-4. `renderTable` и `exportCsv` оба проходят через `getFilteredResults` → `getSortedResults`, т.е. CSV выгружает ровно то, что видно в таблице (с учётом фильтра по DR и сортировки). Строки с `dr === null` (ошибки/pending) фильтром не скрываются.
+4. Кнопка «Стоп» (и Esc) — `stopCheck` → `abortController.abort()`: сигнал передаётся в `fetch` и в `sleep`, поэтому обрываются и запросы в полёте, и ожидание слота/паузы. Воркеры выходят, оставив недоделанные строки в `pending`, после чего `runCheck` переводит все `pending` в `skipped` («Не проверен») и показывает «Остановлено». Статусы строки: `pending | ok | error | skipped`.
+5. `renderTable` и `exportCsv` оба проходят через `getFilteredResults` → `getSortedResults`, т.е. CSV выгружает ровно то, что видно в таблице (с учётом фильтра по DR и сортировки). Строки с `dr === null` (ошибки/pending/skipped) фильтром не скрываются.
 
 Пороги цветовых бейджей DR заданы в `getDrClass` (`≥51` — `dr-high`, `≥21` — `dr-mid`, иначе `dr-low`) и соответствуют классам в `style.css`.
 
@@ -56,4 +57,4 @@ python3 server.py
 ## Соглашения
 
 - Все пользовательские строки — на русском (включая сообщения об ошибках в `app.js` и вывод `server.py`); для склонений есть хелпер `pluralize(n, one, few, many)`.
-- Горячая клавиша Ctrl/Cmd+Enter в textarea запускает проверку.
+- Горячие клавиши: Ctrl/Cmd+Enter в textarea запускает проверку, Esc — останавливает.

@@ -338,11 +338,34 @@ textarea::placeholder {
   color: var(--text-primary);
 }
 
+.progress-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .progress-count {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
+}
+
+.btn-stop {
+  padding: 6px 12px;
+  color: var(--dr-low);
+  background: var(--dr-low-bg);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.btn-stop:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--dr-low);
+}
+
+.btn-stop:disabled {
+  opacity: 0.5;
+  cursor: wait;
 }
 
 .progress-bar-track {
@@ -588,6 +611,11 @@ tbody tr:last-child td {
 
 .status-pending {
   color: var(--text-muted);
+}
+
+.status-skipped {
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 /* Domain name styling */

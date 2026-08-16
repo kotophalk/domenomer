@@ -64,7 +64,15 @@
     <section class="card progress-card hidden" id="progress-section">
       <div class="progress-header">
         <span class="progress-label" id="progress-label">Проверка...</span>
-        <span class="progress-count" id="progress-count">0 / 0</span>
+        <div class="progress-right">
+          <span class="progress-count" id="progress-count">0 / 0</span>
+          <button class="btn-secondary btn-stop" id="stop-btn" type="button" title="Остановить проверку (Esc)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <rect x="5" y="5" width="14" height="14" rx="2"/>
+            </svg>
+            Стоп
+          </button>
+        </div>
       </div>
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progress-bar"></div>
