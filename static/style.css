@@ -670,13 +670,93 @@ tbody tr:last-child td {
   padding: 24px;
   font-size: 0.8rem;
   color: var(--text-muted);
-  max-width: 720px;
+  max-width: 900px;
   margin: 0 auto;
   line-height: 1.6;
 }
 
+#app-footer p {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 #app-footer p + p {
   margin-top: 6px;
+}
+
+/* Другие инструменты экосистемы */
+
+.other-tools {
+  text-align: left;
+  margin-bottom: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.other-tools-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.other-tools-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+#app-footer .other-tools-all {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.other-tools-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+#app-footer .other-tools-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-card-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-weight: 400;
+  text-decoration: none;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+
+#app-footer .other-tools-list a:hover {
+  text-decoration: none;
+  background: var(--bg-hover);
+  border-color: var(--border-focus);
+  transform: translateY(-1px);
+}
+
+.other-tools-list .tool-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+#app-footer .other-tools-list a:hover .tool-name {
+  color: var(--accent);
+}
+
+.other-tools-list .tool-desc {
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 #app-footer a {
@@ -747,6 +827,10 @@ tbody tr:last-child td {
 
   .filter-group {
     width: 100%;
+  }
+
+  .other-tools-list {
+    grid-template-columns: 1fr;
   }
 
   thead th,
