@@ -91,7 +91,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(body)
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
-            self._json_response(e.code, {"error": _ahrefs_error_text(body)[:200]})
+            extra = {}
+            if e.headers.get("Retry-After"):
+                extra["Retry-After"] = e.headers["Retry-After"]  # фронтенд использует при 429
+            self._json_response(e.code, {"error": _ahrefs_error_text(body)[:200]}, extra)
         except Exception as e:
             self._json_response(502, {"error": str(e)})
 
@@ -117,10 +120,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _json_response(self, code, obj):
+    def _json_response(self, code, obj, extra_headers=None):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(json.dumps(obj).encode())
 
@@ -130,7 +135,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
+    # Threading — иначе параллельные запросы фронтенда выстраиваются в очередь на сервере
+    server = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"\n  ⚡ DR Checker запущен: http://localhost:{PORT}")
     if API_KEY:
         print(f"  🔑 AHREFS_API_KEY: ...{API_KEY[-4:]}\n")

@@ -24,14 +24,37 @@
   const filterMin = document.getElementById('filter-min');
   const filterMax = document.getElementById('filter-max');
 
+  // --- Лимиты API ---
+  // Ahrefs API: 60 запросов в минуту, при превышении — 429 (плюс редкие 429 из-за троттлинга).
+  const RATE_LIMIT_PER_MIN = 60;
+  const MIN_INTERVAL_MS = Math.ceil(60000 / RATE_LIMIT_PER_MIN); // пауза между стартами запросов
+  const MAX_CONCURRENCY = 4;   // одновременных запросов в полёте
+  const MAX_RETRIES = 3;       // повторов одного домена после 429
+  const BACKOFF_BASE_MS = 2000; // если Ahrefs не прислал Retry-After: 2с, 4с, 8с...
+  const BACKOFF_MAX_MS = 60000;
+
   // --- State ---
   const API_URL = '/api/dr';
   let results = [];
   let sortColumn = null;
   let sortDirection = 'asc';
   let isRunning = false;
+  let pausedUntil = 0;   // глобальная пауза очереди после 429 (timestamp)
+  let pauseTimer = null; // таймер обратного отсчёта паузы в UI
 
   // --- Helpers ---
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function parseRetryAfter(value) {
+    if (!value) return null;
+    const seconds = Number(value);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+    const date = Date.parse(value);
+    return Number.isNaN(date) ? null : Math.max(0, date - Date.now());
+  }
 
   function parseDomains(text) {
     return text
@@ -86,7 +109,10 @@
         const parsed = JSON.parse(text);
         if (typeof parsed.error === 'string') detail = parsed.error;
       } catch (_) { /* не JSON — оставляем как есть */ }
-      throw new Error(`HTTP ${response.status}${detail ? ': ' + detail.substring(0, 100) : ''}`);
+      const err = new Error(`HTTP ${response.status}${detail ? ': ' + detail.substring(0, 100) : ''}`);
+      err.status = response.status;
+      err.retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'));
+      throw err;
     }
 
     const data = await response.json();
@@ -108,6 +134,9 @@
     isRunning = true;
     checkBtn.disabled = true;
     results = [];
+    pausedUntil = 0;
+    clearInterval(pauseTimer);
+    pauseTimer = null;
 
     // Init results array
     domains.forEach((domain, i) => {
@@ -117,6 +146,7 @@
         dr: null,
         status: 'pending',
         error: null,
+        retries: 0,
       });
     });
 
@@ -126,27 +156,59 @@
     updateProgress(0, domains.length);
     renderTable();
 
-    // Fire all requests in parallel
+    // Очередь: не более MAX_CONCURRENCY в полёте, старты не чаще MIN_INTERVAL_MS,
+    // при 429 — общая пауза для всех воркеров и повтор домена.
     let completed = 0;
+    let nextIndex = 0;
+    let lastStartAt = 0;
 
-    const promises = domains.map((domain, i) => {
-      return fetchDR(domain)
-        .then(data => {
-          results[i].dr = data.dr;
-          results[i].status = 'ok';
-        })
-        .catch(err => {
-          results[i].status = 'error';
-          results[i].error = err.message || 'Неизвестная ошибка';
-        })
-        .finally(() => {
-          completed++;
-          updateProgress(completed, domains.length);
-          renderTable();
-        });
-    });
+    async function waitForSlot() {
+      for (;;) {
+        const now = Date.now();
+        const wait = Math.max(lastStartAt + MIN_INTERVAL_MS, pausedUntil) - now;
+        if (wait <= 0) break;
+        await sleep(wait);
+      }
+      lastStartAt = Date.now();
+    }
 
-    await Promise.allSettled(promises);
+    async function checkOne(r) {
+      for (let attempt = 0; ; attempt++) {
+        await waitForSlot();
+        try {
+          const data = await fetchDR(r.domain);
+          r.dr = data.dr;
+          r.status = 'ok';
+          return;
+        } catch (err) {
+          if (err.status === 429 && attempt < MAX_RETRIES) {
+            const backoff = err.retryAfterMs != null
+              ? Math.max(err.retryAfterMs, 1000)
+              : Math.min(BACKOFF_BASE_MS * 2 ** attempt, BACKOFF_MAX_MS);
+            pauseAll(backoff);
+            r.retries = attempt + 1;
+            renderTable();
+            continue;
+          }
+          r.status = 'error';
+          r.error = (err.message || 'Неизвестная ошибка') + (attempt > 0 ? ` (повторов: ${attempt})` : '');
+          return;
+        }
+      }
+    }
+
+    async function worker() {
+      while (nextIndex < domains.length) {
+        const r = results[nextIndex++];
+        await checkOne(r);
+        completed++;
+        updateProgress(completed, domains.length);
+        renderTable();
+      }
+    }
+
+    const workerCount = Math.min(MAX_CONCURRENCY, domains.length);
+    await Promise.all(Array.from({ length: workerCount }, worker));
 
     // Done
     progressLabel.textContent = 'Готово!';
@@ -155,11 +217,29 @@
     renderSummary();
   }
 
+  function pauseAll(ms) {
+    pausedUntil = Math.max(pausedUntil, Date.now() + ms);
+    if (pauseTimer) return; // отсчёт уже идёт, он подхватит новый pausedUntil
+
+    const tick = () => {
+      const left = Math.ceil((pausedUntil - Date.now()) / 1000);
+      if (left > 0 && isRunning) {
+        progressLabel.textContent = `Лимит API (429) — пауза ${left} с`;
+      } else {
+        clearInterval(pauseTimer);
+        pauseTimer = null;
+        if (isRunning) progressLabel.textContent = 'Проверка...';
+      }
+    };
+    tick();
+    pauseTimer = setInterval(tick, 250);
+  }
+
   function updateProgress(done, total) {
     const pct = total > 0 ? (done / total) * 100 : 0;
     progressBar.style.width = `${pct}%`;
     progressCount.textContent = `${done} / ${total}`;
-    if (done < total) {
+    if (done < total && Date.now() >= pausedUntil) {
       progressLabel.textContent = 'Проверка...';
     }
   }
@@ -248,6 +328,8 @@
         tdStatus.innerHTML = '<span class="status-ok">✓ OK</span>';
       } else if (r.status === 'error') {
         tdStatus.innerHTML = `<span class="status-error" title="${escapeHtml(r.error || '')}">✗ Ошибка</span>`;
+      } else if (r.retries > 0) {
+        tdStatus.innerHTML = `<span class="status-pending" title="Повтор после 429">⏳ повтор ${r.retries}</span>`;
       } else {
         tdStatus.innerHTML = '<span class="status-pending">⏳</span>';
       }

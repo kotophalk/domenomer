@@ -36,13 +36,14 @@ python3 server.py
 
 Два слоя, связанных одним HTTP-эндпоинтом:
 
-**`server.py`** — минимальный сервер на `http.server` с двумя ролями:
-- `GET /api/dr?target=<domain>` — прокси к бесплатному Ahrefs API (`https://api.ahrefs.com/v3/public/domain-rating-free`). Обходит CORS и подставляет `Authorization: Bearer $AHREFS_API_KEY`, чтобы ключ не попадал в браузер. Успешный ответ Ahrefs пробрасывается как есть; ошибки нормализуются в `{"error": "<текст>"}` (400 без `target`, 500 без ключа, код Ahrefs при HTTPError — тело Ahrefs вида `["Error","Unauthorized"]` разворачивается в строку функцией `_ahrefs_error_text`, 502 при прочих сбоях). Фронтенд показывает `error` в тултипе статуса.
+**`server.py`** — минимальный сервер на `http.server.ThreadingHTTPServer` (многопоточный, иначе параллельные запросы фронтенда встали бы в очередь) с двумя ролями:
+- `GET /api/dr?target=<domain>` — прокси к бесплатному Ahrefs API (`https://api.ahrefs.com/v3/public/domain-rating-free`). Обходит CORS и подставляет `Authorization: Bearer $AHREFS_API_KEY`, чтобы ключ не попадал в браузер. Успешный ответ Ahrefs пробрасывается как есть; ошибки нормализуются в `{"error": "<текст>"}` (400 без `target`, 500 без ключа, код Ahrefs при HTTPError — тело Ahrefs вида `["Error","Unauthorized"]` разворачивается в строку функцией `_ahrefs_error_text`, 502 при прочих сбоях). Заголовок `Retry-After` от Ahrefs пробрасывается — фронтенд использует его при 429. Фронтенд показывает `error` в тултипе статуса.
+- Для тестов с mock-апстримом URL Ahrefs можно подменить, импортировав модуль и переопределив `server.AHREFS_API` перед созданием сервера (`_proxy` читает глобальную переменную при каждом вызове).
 - Всё остальное — раздача статики из директории скрипта. Раздаются только расширения из словаря `MIME` (`.html`, `.css`, `.js`); при добавлении картинок/шрифтов/иных ассетов нужно расширять `MIME`, иначе будет 404.
 
 **`app.js`** — вся логика фронтенда в одном IIFE, без фреймворков и модулей. Основной поток:
 1. `parseDomains` → `uniqueDomains`: разбор textarea (разделители: перевод строки, `,`, `;`), срезание схемы/пути/`www.`, дедупликация.
-2. `runCheck`: массив `results` инициализируется со статусом `pending`, затем **все запросы к `/api/dr` запускаются параллельно** (`Promise.allSettled`), без очереди и лимита конкурентности; после каждого ответа — `updateProgress` + полный `renderTable`.
+2. `runCheck`: массив `results` инициализируется со статусом `pending`, затем запросы к `/api/dr` идут через пул воркеров (`MAX_CONCURRENCY`) с паузой `MIN_INTERVAL_MS` между стартами — это укладывает поток в лимит Ahrefs 60 запросов/мин (`RATE_LIMIT_PER_MIN`). При 429 `pauseAll` ставит **общую паузу для всех воркеров** (по `Retry-After`, иначе экспоненциальный backoff от `BACKOFF_BASE_MS`) и домен повторяется до `MAX_RETRIES` раз; другие HTTP-ошибки не повторяются. Все эти константы — в начале `app.js`. После каждого результата — `updateProgress` + полный `renderTable`.
 3. Ответ Ahrefs читается по пути `data.domain_rating.domain_rating`; при отсутствии — `dr: null`.
 4. `renderTable` и `exportCsv` оба проходят через `getFilteredResults` → `getSortedResults`, т.е. CSV выгружает ровно то, что видно в таблице (с учётом фильтра по DR и сортировки). Строки с `dr === null` (ошибки/pending) фильтром не скрываются.
 
