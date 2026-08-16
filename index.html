@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk DR Checker — Domain Rating by Ahrefs</title>
+  <meta name="description" content="Массовая проверка Ahrefs Domain Rating для списка доменов. Бесплатно, без API ключа.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header id="app-header">
+    <div class="header-content">
+      <h1>
+        <span class="header-icon">⚡</span>
+        Bulk DR Checker
+      </h1>
+      <p class="header-subtitle">Массовая проверка Domain Rating через бесплатный API Ahrefs</p>
+    </div>
+  </header>
+
+  <main id="app-main">
+
+    <!-- Input Section -->
+    <section class="card input-card" id="input-section">
+      <div class="card-header">
+        <h2>Введите домены</h2>
+        <span class="card-badge">По одному на строку</span>
+      </div>
+
+      <div class="input-area">
+        <textarea
+          id="domains-input"
+          placeholder="example.com&#10;google.com&#10;github.com&#10;..."
+          spellcheck="false"
+        ></textarea>
+
+        <div class="input-actions">
+          <label class="file-upload-btn" id="file-upload-label">
+            <input type="file" id="file-upload" accept=".txt,.csv" hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Загрузить TXT / CSV
+          </label>
+          <span class="domain-count" id="domain-count"></span>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="check-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Проверить DR
+      </button>
+    </section>
+
+    <!-- Progress Section -->
+    <section class="card progress-card hidden" id="progress-section">
+      <div class="progress-header">
+        <span class="progress-label" id="progress-label">Проверка...</span>
+        <span class="progress-count" id="progress-count">0 / 0</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="card results-card hidden" id="results-section">
+      <div class="results-header">
+        <h2>Результаты</h2>
+        <div class="results-actions">
+          <div class="filter-group">
+            <label>DR от</label>
+            <input type="number" id="filter-min" min="0" max="100" placeholder="0">
+            <label>до</label>
+            <input type="number" id="filter-max" min="0" max="100" placeholder="100">
+          </div>
+          <button class="btn-secondary" id="export-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Экспорт CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th class="col-num" data-sort="index">#</th>
+              <th class="col-domain" data-sort="domain">Домен <span class="sort-icon"></span></th>
+              <th class="col-dr" data-sort="dr">DR <span class="sort-icon"></span></th>
+              <th class="col-status" data-sort="status">Статус <span class="sort-icon"></span></th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+
+      <div class="results-summary" id="results-summary"></div>
+    </section>
+
+  </main>
+
+  <footer id="app-footer">
+    <p>Domain Rating by <a href="https://ahrefs.com/" target="_blank" rel="noopener">Ahrefs</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
