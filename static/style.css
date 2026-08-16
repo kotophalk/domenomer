@@ -659,6 +659,25 @@ tbody tr:last-child td {
   color: var(--text-secondary);
 }
 
+.results-cta {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.results-cta a {
+  color: var(--accent-light);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.results-cta a:hover {
+  text-decoration: underline;
+}
+
 /* ==================
    Footer
    ================== */
