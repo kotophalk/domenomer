@@ -25,17 +25,19 @@
   const filterMin = document.getElementById('filter-min');
   const filterMax = document.getElementById('filter-max');
 
-  // --- Лимиты API ---
-  // Ahrefs API: 60 запросов в минуту, при превышении — 429 (плюс редкие 429 из-за троттлинга).
-  const RATE_LIMIT_PER_MIN = 60;
-  const MIN_INTERVAL_MS = Math.ceil(60000 / RATE_LIMIT_PER_MIN); // пауза между стартами запросов
-  const MAX_CONCURRENCY = 4;   // одновременных запросов в полёте
-  const MAX_RETRIES = 3;       // повторов одного домена после 429
-  const BACKOFF_BASE_MS = 2000; // если Ahrefs не прислал Retry-After: 2с, 4с, 8с...
+  // --- Лимиты ---
+  // Лимит Ahrefs (60 запросов/мин на ключ) держит сервер: он ставит запросы в общую
+  // очередь и отдаёт 429 с Retry-After, если ждать слишком долго. Здесь — только
+  // конкурентность и повторы; ответы из серверного кэша приходят мгновенно.
+  const MAX_CONCURRENCY = 4;    // одновременных запросов в полёте (сервер допускает 6 на IP)
+  const MAX_RETRIES = 5;        // повторов одного домена после 429
+  const BACKOFF_BASE_MS = 2000; // если сервер не прислал Retry-After: 2с, 4с, 8с...
   const BACKOFF_MAX_MS = 60000;
+  let maxDomains = 200;         // уточняется с сервера (/api/limits)
 
   // --- State ---
   const API_URL = '/api/dr';
+  const maxDomainsEl = document.getElementById('max-domains');
   let results = [];
   let sortColumn = null;
   let sortDirection = 'asc';
@@ -92,11 +94,29 @@
   function updateDomainCount() {
     const domains = uniqueDomains(parseDomains(domainsInput.value));
     const count = domains.length;
-    if (count > 0) {
+    if (count > maxDomains) {
+      domainCountEl.textContent = `${count} ${pluralize(count, 'домен', 'домена', 'доменов')} — будут проверены первые ${maxDomains}`;
+      domainCountEl.classList.add('over-limit');
+    } else if (count > 0) {
       domainCountEl.textContent = `${count} ${pluralize(count, 'домен', 'домена', 'доменов')}`;
+      domainCountEl.classList.remove('over-limit');
     } else {
       domainCountEl.textContent = '';
+      domainCountEl.classList.remove('over-limit');
     }
+  }
+
+  async function loadLimits() {
+    try {
+      const resp = await fetch('/api/limits');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (Number.isInteger(data.max_domains) && data.max_domains > 0) {
+        maxDomains = data.max_domains;
+        if (maxDomainsEl) maxDomainsEl.textContent = String(maxDomains);
+        updateDomainCount();
+      }
+    } catch (_) { /* останемся с значением по умолчанию */ }
   }
 
   function pluralize(n, one, few, many) {
@@ -142,6 +162,9 @@
       domainsInput.focus();
       return;
     }
+    if (domains.length > maxDomains) {
+      domains.length = maxDomains; // остальные — следующим прогоном
+    }
 
     isRunning = true;
     checkBtn.disabled = true;
@@ -172,20 +195,17 @@
     updateProgress(0, domains.length);
     renderTable();
 
-    // Очередь: не более MAX_CONCURRENCY в полёте, старты не чаще MIN_INTERVAL_MS,
-    // при 429 — общая пауза для всех воркеров и повтор домена.
+    // Очередь: не более MAX_CONCURRENCY в полёте; при 429 — общая пауза для всех
+    // воркеров (по Retry-After сервера) и повтор домена.
     let completed = 0;
     let nextIndex = 0;
-    let lastStartAt = 0;
 
     async function waitForSlot() {
       while (!signal.aborted) {
-        const now = Date.now();
-        const wait = Math.max(lastStartAt + MIN_INTERVAL_MS, pausedUntil) - now;
+        const wait = pausedUntil - Date.now();
         if (wait <= 0) break;
         await sleep(wait, signal);
       }
-      lastStartAt = Date.now();
     }
 
     // При остановке возвращается, оставив r.status === 'pending'
@@ -261,7 +281,7 @@
     const tick = () => {
       const left = Math.ceil((pausedUntil - Date.now()) / 1000);
       if (left > 0 && isRunning) {
-        progressLabel.textContent = `Лимит API (429) — пауза ${left} с`;
+        progressLabel.textContent = `Ahrefs занят (лимит запросов) — повтор через ${left} с`;
       } else {
         clearInterval(pauseTimer);
         pauseTimer = null;
@@ -518,5 +538,8 @@
       if (!isRunning) runCheck();
     }
   });
+
+  // --- Init ---
+  loadLimits();
 
 })();

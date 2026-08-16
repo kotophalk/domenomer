@@ -4,57 +4,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Что это
 
-Bulk DR Checker — одностраничное веб-приложение для массовой проверки Ahrefs Domain Rating по списку доменов. Интерфейс на русском языке. Никаких зависимостей, сборки, пакетных менеджеров, линтеров и тестов в проекте нет — только Python 3 (stdlib) и ванильные HTML/CSS/JS.
+Доменомер (<https://domenomer.delosvod.ru>) — публичный бесплатный инструмент экосистемы Делосвод: массовая проверка Ahrefs Domain Rating по списку доменов. Интерфейс на русском. Зависимостей нет: Python 3 (stdlib) + ванильные HTML/CSS/JS, без сборки. Ближайший «брат» по устройству и деплою — репозиторий `domain-checker` (Свободомен) того же автора; конвенции сервера описаны в `docs/deploy.md` репозитория `slovostat`.
 
 ## Команды
 
-Перед первым запуском нужен ключ Ahrefs APIv3 (эндпоинт бесплатный, но без ключа отдаёт 401):
-
 ```bash
-cp .env.example .env   # и вписать AHREFS_API_KEY=...
+cp .env.example .env                       # вписать AHREFS_API_KEY (ключ Ahrefs APIv3)
+./start.sh                                 # = python3 server.py, http://localhost:3000
+python3 -m unittest discover -s tests -v   # тесты, офлайн, ~3 с
+python3 -m unittest tests.test_server.HttpTest.test_dr_ok_and_cache_hit -v   # один тест
+docker compose up -d --build               # контейнер на 127.0.0.1:8003 (.env читает compose)
 ```
 
-Ключ читается из переменной окружения `AHREFS_API_KEY`; если она не задана — из `.env` в директории проекта (`server.py` парсит его сам, `python-dotenv` не нужен). `.env` в `.gitignore`.
-
-Запуск (сервер и статика на `http://localhost:3000`):
-
-```bash
-python3 server.py
-```
-
-или через обёртку:
-
-```bash
-./start.sh
-```
-
-Остановка — Ctrl+C. Порт захардкожен в `server.py` (`PORT = 3000`).
-
-Открывать `index.html` напрямую с диска нельзя: фронтенд ходит по относительному пути `/api/dr`, который существует только у `server.py`.
+Открывать `static/index.html` с диска нельзя: фронтенд ходит по относительным `/api/…`. Для ручной проверки без ключа Ahrefs апстрим подменяется переменной `AHREFS_API_URL` (в тестах `fetch_upstream` подменён `mock.patch`).
 
 ## Архитектура
 
-Два слоя, связанных одним HTTP-эндпоинтом:
+**`server.py`** — один файл, `ThreadingHTTPServer`, три роли:
 
-**`server.py`** — минимальный сервер на `http.server.ThreadingHTTPServer` (многопоточный, иначе параллельные запросы фронтенда встали бы в очередь) с двумя ролями:
-- `GET /api/dr?target=<domain>` — прокси к бесплатному Ahrefs API (`https://api.ahrefs.com/v3/public/domain-rating-free`). Обходит CORS и подставляет `Authorization: Bearer $AHREFS_API_KEY`, чтобы ключ не попадал в браузер. Успешный ответ Ahrefs пробрасывается как есть; ошибки нормализуются в `{"error": "<текст>"}` (400 без `target`, 500 без ключа, код Ahrefs при HTTPError — тело Ahrefs вида `["Error","Unauthorized"]` разворачивается в строку функцией `_ahrefs_error_text`, 502 при прочих сбоях). Заголовок `Retry-After` от Ahrefs пробрасывается — фронтенд использует его при 429. Фронтенд показывает `error` в тултипе статуса.
-- Для тестов с mock-апстримом URL Ahrefs можно подменить, импортировав модуль и переопределив `server.AHREFS_API` перед созданием сервера (`_proxy` читает глобальную переменную при каждом вызове).
-- Всё остальное — раздача статики из директории скрипта. Раздаются только расширения из словаря `MIME` (`.html`, `.css`, `.js`); при добавлении картинок/шрифтов/иных ассетов нужно расширять `MIME`, иначе будет 404.
+1. **Прокси `/api/dr?target=`** — самое важное. Ключ Ahrefs один на всех посетителей, а лимит Ahrefs — 60 запросов/мин на ключ, поэтому лимит соблюдается **здесь, глобально**, а не в браузере:
+   - `normalize_target` приводит ввод к ключу кэша и параметру для Ahrefs (схема/путь/`www.` срезаются, IDN → punycode); мусор → 400;
+   - `TTLCache` (LRU + TTL, по умолчанию сутки) — HIT отдаётся сразу, заголовок `X-Cache`; кэшируются только успешные ответы;
+   - `ConcurrencyGuard` — не больше `PER_IP_CONCURRENCY` одновременных запросов с IP (`TRUST_PROXY=1` → IP из `X-Forwarded-For`), иначе 429 + `Retry-After: 2`;
+   - `UpstreamLimiter` — скользящее окно `UPSTREAM_RATE_PER_MIN` за 60 с с FIFO-очередью; `acquire(QUEUE_MAX_WAIT)` либо даёт слот, либо сразу (если ETA заведомо больше) / по таймауту возвращает 429 с оценкой `Retry-After`; при 429 от самого Ahrefs `pause()` останавливает выдачу слотов всем на `Retry-After` (или 5 с);
+   - `fetch_upstream` изолирован — тесты подменяют именно его; ответ 200 проверяется на форму `domain_rating.domain_rating` до кэширования; ошибки Ahrefs (`["Error","Unauthorized"]`) разворачиваются `_ahrefs_error_text`, 5xx апстрима → 502.
+2. **Статика** из `static/` с whitelist расширений `MIME` и проверкой, что путь не вышел за `static/` (`normpath` + prefix). HTML — `Cache-Control: no-cache`, ассеты — 5 мин.
+3. **Служебное**: `/api/limits` (фронтенд берёт отсюда `max_domains`), `/healthz` (503 без ключа — так Docker-healthcheck и `update.sh` падают заметно), `/robots.txt`.
 
-**`app.js`** — вся логика фронтенда в одном IIFE, без фреймворков и модулей. Основной поток:
-1. `parseDomains` → `uniqueDomains`: разбор textarea (разделители: перевод строки, `,`, `;`), срезание схемы/пути/`www.`, дедупликация.
-2. `runCheck`: массив `results` инициализируется со статусом `pending`, затем запросы к `/api/dr` идут через пул воркеров (`MAX_CONCURRENCY`) с паузой `MIN_INTERVAL_MS` между стартами — это укладывает поток в лимит Ahrefs 60 запросов/мин (`RATE_LIMIT_PER_MIN`). При 429 `pauseAll` ставит **общую паузу для всех воркеров** (по `Retry-After`, иначе экспоненциальный backoff от `BACKOFF_BASE_MS`) и домен повторяется до `MAX_RETRIES` раз; другие HTTP-ошибки не повторяются. Все эти константы — в начале `app.js`. После каждого результата — `updateProgress` + полный `renderTable`.
-3. Ответ Ahrefs читается по пути `data.domain_rating.domain_rating`; при отсутствии — `dr: null`.
-4. Кнопка «Стоп» (и Esc) — `stopCheck` → `abortController.abort()`: сигнал передаётся в `fetch` и в `sleep`, поэтому обрываются и запросы в полёте, и ожидание слота/паузы. Воркеры выходят, оставив недоделанные строки в `pending`, после чего `runCheck` переводит все `pending` в `skipped` («Не проверен») и показывает «Остановлено». Статусы строки: `pending | ok | error | skipped`.
-5. `renderTable` и `exportCsv` оба проходят через `getFilteredResults` → `getSortedResults`, т.е. CSV выгружает ровно то, что видно в таблице (с учётом фильтра по DR и сортировки). Строки с `dr === null` (ошибки/pending/skipped) фильтром не скрываются.
+Конфиг — только переменные окружения (таблица в README), локально подгружаются из `.env` функцией `load_env_file`; в Docker их передаёт compose. Все настройки — константы в начале `server.py`.
 
-Пороги цветовых бейджей DR заданы в `getDrClass` (`≥51` — `dr-high`, `≥21` — `dr-mid`, иначе `dr-low`) и соответствуют классам в `style.css`.
+**`static/app.js`** — IIFE без фреймворков. Поток: `parseDomains` → `uniqueDomains` → обрезка до `maxDomains` (с `/api/limits`) → пул из `MAX_CONCURRENCY` воркеров без собственного пейсинга (лимит держит сервер). При 429 `pauseAll` ставит общую паузу по `Retry-After` и повторяет домен до `MAX_RETRIES`; «Стоп»/Esc — `AbortController`, сигнал уходит и в `fetch`, и в `sleep`, недоделанные строки получают статус `skipped`. Статусы строки: `pending | ok | error | skipped`. `renderTable` и `exportCsv` идут через один и тот же `getFilteredResults → getSortedResults` (CSV = что видно). Пороги бейджей DR — `getDrClass` (≥51 / ≥21). `id` элементов в `static/index.html` — контракт с `app.js`.
 
-**`index.html`** — разметка; `id` элементов являются контрактом с `app.js` (всё берётся через `getElementById`/`querySelectorAll` в начале IIFE). Заголовки таблицы с `data-sort` кликабельны для сортировки.
+**`static/style.css`** — тёмная тема, всё в CSS-переменных `:root`; шрифты системные (Google Fonts убраны намеренно — без внешних запросов).
 
-**`style.css`** — тёмная тема, все цвета/радиусы/шрифт вынесены в CSS-переменные в `:root`; при правках стилей менять переменные, а не хардкодить значения.
+## Деплой (VPS `lulu`, пользователь `deploy`)
 
-## Соглашения
+Как у соседей: `/opt/domenomer` (git clone), `docker compose up -d --build`, порт `127.0.0.1:8003` (8000 slovostat, 8001 itogoskaz, 8002 domain-checker), Caddy на хосте — `deploy/domenomer.caddy` → `/etc/caddy/conf.d/`, валидировать **от пользователя caddy** (`sudo -u caddy caddy validate --config /etc/caddy/Caddyfile`), затем `systemctl reload caddy`. Обновление — `deploy/update.sh` (ff-only pull, rebuild, ждёт `/healthz`); его же дёргает GitHub Actions `deploy.yml` через SSH-ключ с forced command после зелёных `tests.yml`. Бренд-домены `domenomer.ru` / `доменомер.рф` (`xn--d1aca0abfedu.xn--p1ai`) — `deploy/domenomer-redirects.caddy`, ставить только когда их DNS указывает на сервер (иначе Caddy упрётся в лимиты Let's Encrypt).
 
-- Все пользовательские строки — на русском (включая сообщения об ошибках в `app.js` и вывод `server.py`); для склонений есть хелпер `pluralize(n, one, few, many)`.
-- Горячие клавиши: Ctrl/Cmd+Enter в textarea запускает проверку, Esc — останавливает.
+## Соглашения и ограничения
+
+- Все пользовательские строки — на русском (включая тексты ошибок сервера); хелпер `pluralize(n, one, few, many)`.
+- Горячие клавиши: Ctrl/Cmd+Enter — запуск, Esc — стоп.
+- Лицензия Ahrefs на DR-данные (<https://ahrefs.com/legal/domain-rating-license>): атрибуция «Domain Rating by Ahrefs» со ссылкой в футере обязательна и не должна скрываться; запрещено обходить лимиты и собирать датасет — поэтому кэш только в памяти и с TTL, никакой персистентной истории DR.
+- Ключ Ahrefs — только в `.env`/окружении сервера, в ответы и фронтенд не попадает; `.env` в `.gitignore` и `.dockerignore`.

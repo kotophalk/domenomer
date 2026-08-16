@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    image: domenomer
+    restart: unless-stopped
+    # Наружу приложение не смотрит: его выставляет Caddy на хосте.
+    # 8000 — slovostat, 8001 — itogoskaz, 8002 — domain-checker, 8003 — этот сервис.
+    ports:
+      - "127.0.0.1:${DOMENOMER_PORT:-8003}:8080"
+    environment:
+      # Ключ Ahrefs APIv3 — единственная обязательная переменная (из .env рядом).
+      AHREFS_API_KEY: ${AHREFS_API_KEY:?AHREFS_API_KEY не задан в .env}
+      # За Caddy IP клиента приходит в X-Forwarded-For; порт слушает только
+      # 127.0.0.1, так что подделать заголовок снаружи нельзя.
+      TRUST_PROXY: "1"
+      UPSTREAM_RATE_PER_MIN: ${UPSTREAM_RATE_PER_MIN:-60}
+      QUEUE_MAX_WAIT: ${QUEUE_MAX_WAIT:-30}
+      PER_IP_CONCURRENCY: ${PER_IP_CONCURRENCY:-6}
+      MAX_DOMAINS: ${MAX_DOMAINS:-200}
+      CACHE_TTL: ${CACHE_TTL:-86400}
+      CACHE_MAX: ${CACHE_MAX:-50000}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # Чистый stdlib: ~30 МБ в покое; кэш на 50 000 записей — ещё ~20 МБ.
+    # Лимит держит инструмент в рамках, чтобы не уронить соседей.
+    mem_limit: 192m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # healthcheck объявлен в Dockerfile (/healthz).

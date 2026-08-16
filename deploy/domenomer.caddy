@@ -1,0 +1,22 @@
+# Конфиг Caddy для «Доменомера». Кладётся в /etc/caddy/conf.d/domenomer.caddy,
+# откуда его подхватывает `import` из общего /etc/caddy/Caddyfile (тот приходит
+# из репозитория slovostat; сниппет (common) — сжатие, охранные заголовки, лог —
+# объявлен там).
+#
+#   sudo install -m 644 /opt/domenomer/deploy/domenomer.caddy /etc/caddy/conf.d/
+#   sudo -u caddy caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Сертификат Caddy получает и продлевает сам — но только после того, как
+# A-запись домена указывает на этот сервер (135.106.185.112).
+#
+# Редиректы с бренд-доменов domenomer.ru / доменомер.рф — в соседнем файле
+# domenomer-redirects.caddy; ставится отдельно, когда у них появится DNS.
+
+domenomer.delosvod.ru {
+	import common domenomer
+
+	# /api/dr может держать соединение до QUEUE_MAX_WAIT (30 с), ожидая слот
+	# в очереди к Ahrefs. У Caddy нет дефолтного таймаута апстрима — ок.
+	reverse_proxy 127.0.0.1:8003
+}

@@ -3,11 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bulk DR Checker — Domain Rating by Ahrefs</title>
-  <meta name="description" content="Массовая проверка Ahrefs Domain Rating для списка доменов через бесплатный эндпоинт Ahrefs APIv3.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>Доменомер — массовая проверка Ahrefs Domain Rating (DR)</title>
+  <meta name="description" content="Бесплатная массовая проверка Ahrefs Domain Rating (DR) для списка доменов: вставьте список — получите таблицу с DR, фильтром, сортировкой и экспортом в CSV.">
+  <link rel="canonical" href="https://domenomer.delosvod.ru/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Доменомер">
+  <meta property="og:title" content="Доменомер — массовая проверка Ahrefs DR">
+  <meta property="og:description" content="Бесплатная проверка Domain Rating для списка доменов с экспортом в CSV.">
+  <meta property="og:url" content="https://domenomer.delosvod.ru/">
+  <meta property="og:locale" content="ru_RU">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FF8D00'/%3E%3Ctext x='32' y='45' font-size='38' font-weight='700' font-family='system-ui,sans-serif' text-anchor='middle' fill='%23fff'%3EД%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,9 +21,9 @@
     <div class="header-content">
       <h1>
         <span class="header-icon">⚡</span>
-        Bulk DR Checker
+        Доменомер
       </h1>
-      <p class="header-subtitle">Массовая проверка Domain Rating через бесплатный API Ahrefs</p>
+      <p class="header-subtitle">Массовая проверка Domain Rating (DR) по данным Ahrefs — бесплатно, до <span id="max-domains">200</span> доменов за раз</p>
     </div>
   </header>
 
@@ -121,7 +126,8 @@
   </main>
 
   <footer id="app-footer">
-    <p>Domain Rating by <a href="https://ahrefs.com/" target="_blank" rel="noopener">Ahrefs</a></p>
+    <p>Domain Rating by <a href="https://ahrefs.com/" target="_blank" rel="noopener">Ahrefs</a>. DR — оценка силы ссылочного профиля домена по шкале 0–100; данные могут отставать от Ahrefs до суток.</p>
+    <p>Бесплатный инструмент экосистемы <a href="https://delosvod.ru/" target="_blank" rel="noopener">Делосвод</a> — лаборатории автоматизации SEO.</p>
   </footer>
 
   <script src="app.js"></script>

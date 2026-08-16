@@ -1,0 +1,11 @@
+.git
+.gitignore
+.github
+.env
+.env.example
+__pycache__
+*.pyc
+tests/
+deploy/
+*.log
+*.md

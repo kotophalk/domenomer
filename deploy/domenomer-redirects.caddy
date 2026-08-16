@@ -1,0 +1,14 @@
+# Бренд-домены «Доменомера» → постоянный редирект на основной адрес.
+# domenomer.ru и доменомер.рф (punycode xn--d1aca0abfedu.xn--p1ai).
+#
+# Ставить ТОЛЬКО когда A-записи этих доменов (и www) указывают на 135.106.185.112:
+# иначе Caddy будет безуспешно запрашивать сертификаты и упрётся в лимиты
+# Let's Encrypt (5 неудачных проверок в час на имя).
+#
+#   sudo install -m 644 /opt/domenomer/deploy/domenomer-redirects.caddy /etc/caddy/conf.d/
+#   sudo -u caddy caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+
+domenomer.ru, www.domenomer.ru, xn--d1aca0abfedu.xn--p1ai, www.xn--d1aca0abfedu.xn--p1ai {
+	redir https://domenomer.delosvod.ru{uri} permanent
+}
