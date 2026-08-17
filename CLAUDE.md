@@ -35,6 +35,8 @@ docker compose up -d --build               # контейнер на 127.0.0.1:8
 
 **`static/app.js`** — IIFE без фреймворков. Поток: `parseDomains` → `uniqueDomains` → обрезка до `maxDomains` (с `/api/limits`) → пул из `MAX_CONCURRENCY` воркеров без собственного пейсинга (лимит держит сервер). При 429 `pauseAll` ставит общую паузу по `Retry-After` и повторяет домен до `MAX_RETRIES`; «Стоп»/Esc — `AbortController`, сигнал уходит и в `fetch`, и в `sleep`, недоделанные строки получают статус `skipped`. Статусы строки: `pending | ok | error | skipped`. `renderTable` и `exportCsv` идут через один и тот же `getFilteredResults → getSortedResults` (CSV = что видно). Пороги бейджей DR — `getDrClass` (≥51 / ≥21). `id` элементов в `static/index.html` — контракт с `app.js`.
 
+**Метрика** — блок между `<!-- metrika:start -->…<!-- metrika:end -->` в конце `static/index.html` с плейсхолдером `__METRIKA_ID__`; `server.py` (`render_index`) подставляет `METRIKA_ID` из окружения или вырезает блок целиком, если переменная пуста. Единственный внешний запрос фронтенда, и только на проде.
+
 **`static/style.css`** — тёмная тема, всё в CSS-переменных `:root`; шрифты системные (Google Fonts убраны намеренно — без внешних запросов).
 
 ## Деплой (VPS `lulu`, пользователь `deploy`)

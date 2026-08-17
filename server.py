@@ -79,6 +79,11 @@ TRUST_PROXY = os.environ.get("TRUST_PROXY", "0") == "1"
 # Origin'ы, которым разрешён API из браузера ("*" или список через запятую). Пусто — CORS выключен.
 CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "").strip()
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+# Номер счётчика Яндекс.Метрики (только цифры). Пусто — блок из static/index.html
+# вырезается: локальный стенд, тесты и чужие копии не шлют хиты в чужой счётчик.
+METRIKA_ID = os.environ.get("METRIKA_ID", "").strip()
+if not METRIKA_ID.isdigit():
+    METRIKA_ID = ""
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -92,6 +97,16 @@ MIME = {
 }
 
 log = logging.getLogger("domenomer")
+
+# Блок Метрики в static/index.html: между маркерами, номер счётчика — __METRIKA_ID__.
+_METRIKA_BLOCK = re.compile(rb"[ \t]*<!-- metrika:start -->.*?<!-- metrika:end -->\n?", re.S)
+
+
+def render_index(raw, counter_id=""):
+    """index.html для отдачи: подставить номер счётчика или убрать блок целиком."""
+    if counter_id:
+        return raw.replace(b"__METRIKA_ID__", counter_id.encode("ascii"))
+    return _METRIKA_BLOCK.sub(b"", raw)
 
 
 # --- Вспомогательное ---
@@ -435,6 +450,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         with open(full, "rb") as f:
             data = f.read()
+        if rel == "index.html":
+            data = render_index(data, METRIKA_ID)
         # HTML без кэша, чтобы деплой подхватывался сразу; ассеты — ненадолго
         cache_control = "no-cache" if ext == ".html" else "public, max-age=300"
         self._raw(200, data, MIME[ext], {"Cache-Control": cache_control})

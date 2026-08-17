@@ -219,6 +219,26 @@ class HttpTest(unittest.TestCase):
             code, _, _ = self.get(p)
             self.assertEqual(code, 404, p)
 
+    def test_index_without_metrika_id_has_no_counter(self):
+        """По умолчанию (стенд, тесты, чужие копии) хиты в Метрику не шлются."""
+        with mock.patch.object(server, "METRIKA_ID", ""):
+            for p in ("/", "/index.html"):
+                _, body, _ = self.get(p)
+                self.assertNotIn(b"mc.yandex.ru", body, p)
+                self.assertNotIn(b"__METRIKA_ID__", body, p)
+                self.assertNotIn(b"metrika:start", body, p)
+
+    def test_index_with_metrika_id_renders_counter(self):
+        with mock.patch.object(server, "METRIKA_ID", "12345678"):
+            code, body, h = self.get("/")
+        self.assertEqual(code, 200)
+        self.assertEqual(int(h["Content-Length"]), len(body))
+        self.assertIn(b"https://mc.yandex.ru/metrika/tag.js?id=12345678", body)
+        self.assertIn(b'ym(12345678,"init"', body)
+        self.assertIn(b"https://mc.yandex.ru/watch/12345678", body)
+        self.assertIn(b"webvisor:false", body)
+        self.assertNotIn(b"__METRIKA_ID__", body)
+
     def test_healthz_and_limits_and_robots(self):
         code, body, _ = self.get("/healthz")
         self.assertEqual(code, 200)

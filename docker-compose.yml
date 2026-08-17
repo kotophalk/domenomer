@@ -21,6 +21,7 @@ services:
       CACHE_MAX: ${CACHE_MAX:-50000}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      METRIKA_ID: ${METRIKA_ID:-}
     # Чистый stdlib: ~30 МБ в покое; кэш на 50 000 записей — ещё ~20 МБ.
     # Лимит держит инструмент в рамках, чтобы не уронить соседей.
     mem_limit: 192m
