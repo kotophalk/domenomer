@@ -298,7 +298,7 @@ def fetch_upstream(target):
     """Запрос к Ahrefs. Возвращает (status, body_bytes, headers)."""
     url = f"{AHREFS_API}?target={urllib.parse.quote(target)}&output=json"
     req = urllib.request.Request(url, headers={
-        "User-Agent": "Domenomer/1.0 (+https://domenomer.delosvod.ru)",
+        "User-Agent": "Domenomer/1.0 (+https://domenomer.ru)",
         "Accept": "application/json",
         "Authorization": f"Bearer {API_KEY}",
     })

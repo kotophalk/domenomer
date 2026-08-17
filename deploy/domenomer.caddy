@@ -7,16 +7,23 @@
 #   sudo -u caddy caddy validate --config /etc/caddy/Caddyfile
 #   sudo systemctl reload caddy
 #
-# Сертификат Caddy получает и продлевает сам — но только после того, как
-# A-запись домена указывает на этот сервер (135.106.185.112).
+# Сертификаты Caddy получает и продлевает сам — но только после того, как
+# A-запись домена указывает на этот сервер (135.106.185.112). Новые имена
+# добавлять сюда ТОЛЬКО после DNS: иначе Caddy упрётся в лимиты Let's Encrypt
+# (5 неудачных проверок в час на имя).
 #
-# Редиректы с бренд-доменов domenomer.ru / доменомер.рф — в соседнем файле
-# domenomer-redirects.caddy; ставится отдельно, когда у них появится DNS.
+# Канонический адрес — domenomer.ru (с 16.08.2026; до этого — domenomer.delosvod.ru,
+# поддомен хаба). www, старый поддомен и доменомер.рф (punycode
+# xn--d1aca0abfedu.xn--p1ai) — постоянные редиректы на канон.
 
-domenomer.delosvod.ru {
+domenomer.ru {
 	import common domenomer
 
 	# /api/dr может держать соединение до QUEUE_MAX_WAIT (30 с), ожидая слот
 	# в очереди к Ahrefs. У Caddy нет дефолтного таймаута апстрима — ок.
 	reverse_proxy 127.0.0.1:8003
+}
+
+www.domenomer.ru, domenomer.delosvod.ru, xn--d1aca0abfedu.xn--p1ai, www.xn--d1aca0abfedu.xn--p1ai {
+	redir https://domenomer.ru{uri} permanent
 }

@@ -1,6 +1,6 @@
 # ⚡ Доменомер
 
-**<https://domenomer.delosvod.ru>** — бесплатная массовая проверка **Ahrefs Domain Rating (DR)** для списка доменов. Вставили список — получили таблицу с DR, отфильтровали, выгрузили в CSV. Бесплатный инструмент экосистемы [Делосвод](https://delosvod.ru/).
+**<https://domenomer.ru>** — бесплатная массовая проверка **Ahrefs Domain Rating (DR)** для списка доменов. Вставили список — получили таблицу с DR, отфильтровали, выгрузили в CSV. Бесплатный инструмент экосистемы [Делосвод](https://delosvod.ru/).
 
 Работает через бесплатный эндпоинт Ahrefs `domain-rating-free` (0 API units), но ему нужен ключ APIv3 — он лежит на сервере и в браузер не попадает.
 
@@ -71,7 +71,7 @@ docker compose up -d --build
 curl -s http://127.0.0.1:8003/healthz
 ```
 
-Домен: [`deploy/domenomer.caddy`](deploy/domenomer.caddy) (`domenomer.delosvod.ru` → `127.0.0.1:8003`) кладётся в `/etc/caddy/conf.d/`, затем `sudo -u caddy caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy`. Сертификат Caddy получит сам. Редиректы с бренд-доменов `domenomer.ru` / `доменомер.рф` — [`deploy/domenomer-redirects.caddy`](deploy/domenomer-redirects.caddy), ставится отдельно, когда их A-записи укажут на сервер.
+Домен: [`deploy/domenomer.caddy`](deploy/domenomer.caddy) (`domenomer.ru` → `127.0.0.1:8003`; www, `domenomer.delosvod.ru` и `доменомер.рф` → 301 на `domenomer.ru`) кладётся в `/etc/caddy/conf.d/`, затем `sudo -u caddy caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy`. Сертификат Caddy получит сам. Редиректы с бренд-доменов `domenomer.ru` / `доменомер.рф` — [`deploy/domenomer-redirects.caddy`](deploy/domenomer-redirects.caddy), ставится отдельно, когда их A-записи укажут на сервер.
 
 Обновление: `/opt/domenomer/deploy/update.sh` (подтягивает `origin/main`, пересобирает, ждёт `/healthz`). Автодеплой: GitHub Actions после зелёных тестов на `main` запускает тот же скрипт по SSH-ключу с forced command; секреты `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS` — как у slovostat.
 
