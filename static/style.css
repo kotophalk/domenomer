@@ -858,3 +858,30 @@ tbody tr:last-child td {
     font-size: 0.8rem;
   }
 }
+
+/* ==================
+   Текстовые страницы (privacy.html)
+   ================== */
+
+.prose { max-width: 760px; margin: 0 auto; width: 100%; font-size: 0.95rem; line-height: 1.6; color: var(--text-primary); }
+.prose h2 { font-size: 1.05rem; font-weight: 700; margin: 26px 0 8px; color: var(--text-primary); }
+.prose p, .prose ul { margin: 0 0 10px; }
+.prose ul { padding-left: 20px; }
+.prose li { margin-bottom: 4px; }
+.prose a { color: var(--accent); text-decoration: none; }
+.prose a:hover { text-decoration: underline; }
+.prose code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: var(--bg-input); padding: 1px 5px; border-radius: 4px; }
+.prose-back { font-size: 0.85rem; }
+.prose-meta { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 20px !important; }
+
+/* ==================
+   Уведомление о cookie (только вместе со счётчиком Метрики)
+   ================== */
+
+#cookie-notice { position: fixed; left: 20px; bottom: 20px; z-index: 9999; width: 320px; max-width: calc(100vw - 40px); padding: 14px 16px; background: var(--bg-secondary); border: 1px solid var(--bg-card-border); border-radius: var(--radius-sm); box-shadow: var(--shadow); font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary); display: none; }
+#cookie-notice.show { display: block; }
+#cookie-notice p { margin: 0 0 8px; }
+#cookie-notice a { color: var(--accent); text-decoration: none; }
+#cookie-notice a:hover { text-decoration: underline; }
+#cookie-notice button { float: right; padding: 6px 14px; font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: none; border-radius: var(--radius-xs); cursor: pointer; }
+#cookie-notice button:hover { background: var(--accent-light); }

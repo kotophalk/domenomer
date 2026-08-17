@@ -139,7 +139,7 @@
       <!-- ecosystem-footer:end --></ul>
     </nav>
     <p>Domain Rating by <a href="https://ahrefs.com/" target="_blank" rel="noopener">Ahrefs</a>. DR — оценка силы ссылочного профиля домена по шкале 0–100; данные могут отставать от Ahrefs до суток.</p>
-    <p>Бесплатный инструмент экосистемы <a href="https://delosvod.ru/?utm_source=domenomer&amp;utm_medium=footer&amp;utm_campaign=ecosystem&amp;utm_content=hub" target="_blank" rel="noopener">Делосвод</a> — лаборатории автоматизации SEO.</p>
+    <p>Бесплатный инструмент экосистемы <a href="https://delosvod.ru/?utm_source=domenomer&amp;utm_medium=footer&amp;utm_campaign=ecosystem&amp;utm_content=hub" target="_blank" rel="noopener">Делосвод</a> — лаборатории автоматизации SEO. <a href="/privacy">Политика конфиденциальности</a></p>
   </footer>
 
   <script src="app.js"></script>
@@ -150,6 +150,14 @@
   ym(__METRIKA_ID__,"init",{clickmap:false,trackLinks:true,accurateTrackBounce:true,webvisor:false});
   </script>
   <noscript><div><img src="https://mc.yandex.ru/watch/__METRIKA_ID__" style="position:absolute;left:-9999px" alt=""></div></noscript>
+  <div id="cookie-notice" role="dialog" aria-labelledby="cookie-notice-text">
+    <p id="cookie-notice-text">Мы используем файлы с данными (cookie) для работы сайта и обезличенной статистики Яндекс.Метрики. <a href="/privacy">Политика конфиденциальности</a></p>
+    <button type="button" id="cookie-notice-ok" aria-label="Принять и закрыть">ОК</button>
+  </div>
+  <script>
+  (function(){var n=document.getElementById('cookie-notice');if(!n||/(^|; )nc_accepted=1(;|$)/.test(document.cookie)){if(n)n.remove();return;}
+  n.className='show';document.getElementById('cookie-notice-ok').addEventListener('click',function(){document.cookie='nc_accepted=1; max-age=2592000; path=/; SameSite=Lax'+(location.protocol==='https:'?'; Secure':'');n.remove();});})();
+  </script>
   <!-- metrika:end -->
 </body>
 </html>

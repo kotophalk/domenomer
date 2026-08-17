@@ -227,6 +227,16 @@ class HttpTest(unittest.TestCase):
                 self.assertNotIn(b"mc.yandex.ru", body, p)
                 self.assertNotIn(b"__METRIKA_ID__", body, p)
                 self.assertNotIn(b"metrika:start", body, p)
+                self.assertNotIn(b'id="cookie-notice"', body, p)
+                self.assertIn(b'href="/privacy"', body, p)  # ссылка в футере — всегда
+
+    def test_privacy_page(self):
+        code, body, h = self.get("/privacy")
+        self.assertEqual(code, 200)
+        self.assertIn("text/html", h["Content-Type"])
+        self.assertIn("Политика конфиденциальности".encode(), body)
+        self.assertIn(b"502917677947", body)
+        self.assertEqual(self.get("/privacy.html")[0], 200)
 
     def test_index_with_metrika_id_renders_counter(self):
         with mock.patch.object(server, "METRIKA_ID", "12345678"):
@@ -238,6 +248,8 @@ class HttpTest(unittest.TestCase):
         self.assertIn(b"https://mc.yandex.ru/watch/12345678", body)
         self.assertIn(b"webvisor:false", body)
         self.assertNotIn(b"__METRIKA_ID__", body)
+        self.assertIn(b'id="cookie-notice"', body)
+        self.assertIn(b"nc_accepted=1", body)
 
     def test_healthz_and_limits_and_robots(self):
         code, body, _ = self.get("/healthz")

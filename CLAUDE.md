@@ -37,6 +37,8 @@ docker compose up -d --build               # контейнер на 127.0.0.1:8
 
 **Метрика** — блок между `<!-- metrika:start -->…<!-- metrika:end -->` в конце `static/index.html` с плейсхолдером `__METRIKA_ID__`; `server.py` (`render_index`) подставляет `METRIKA_ID` из окружения или вырезает блок целиком, если переменная пуста. Единственный внешний запрос фронтенда, и только на проде.
 
+**`static/privacy.html`** — политика конфиденциальности, `/privacy` (маппинг в `_static`); стили `.prose*` в `style.css`. Cookie-уведомление (`#cookie-notice`, cookie `nc_accepted` на 30 дней, как в «Крошке моей») — внутри блока Метрики в `index.html`: без счётчика сервис cookie не ставит.
+
 **`static/style.css`** — тёмная тема, всё в CSS-переменных `:root`; шрифты системные (Google Fonts убраны намеренно — без внешних запросов).
 
 ## Деплой (VPS `lulu`, пользователь `deploy`)

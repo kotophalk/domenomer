@@ -439,6 +439,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _static(self, path):
         if path == "/":
             path = "/index.html"
+        elif path == "/privacy":
+            path = "/privacy.html"
         rel = os.path.normpath(urllib.parse.unquote(path).lstrip("/"))
         full = os.path.join(STATIC_DIR, rel)
         ext = os.path.splitext(full)[1].lower()

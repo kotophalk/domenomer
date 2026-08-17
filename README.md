@@ -42,6 +42,8 @@ docker compose up -d --build   # порт 127.0.0.1:8003, .env читает comp
 
 Служебные: `GET /api/limits` → `{"max_domains", "upstream_rate_per_min", "cache_ttl"}`; `GET /healthz` (503, если нет ключа).
 
+Страницы: `/` — интерфейс, `/privacy` — политика конфиденциальности (`static/privacy.html`). Счётчик Яндекс.Метрики и уведомление о cookie появляются только при заданном `METRIKA_ID`.
+
 ## Настройки (переменные окружения)
 
 | Переменная | По умолчанию | Смысл |
