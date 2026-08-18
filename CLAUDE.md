@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Доменомер (<https://domenomer.ru>; с 16.08.2026 канон на бренд-домене, www / старый поддомен domenomer.delosvod.ru / доменомер.рф — 301 на него, все имена в одном `deploy/domenomer.caddy`) — публичный бесплатный инструмент экосистемы Делосвод: массовая проверка Ahrefs Domain Rating по списку доменов. Интерфейс на русском. Зависимостей нет: Python 3 (stdlib) + ванильные HTML/CSS/JS, без сборки. Ближайший «брат» по устройству и деплою — репозиторий `domain-checker` (Свободомен) того же автора; конвенции сервера описаны в `docs/deploy.md` репозитория `slovostat`.
 
+Иконки сайта `static/favicon.svg`, `favicon.ico`, `apple-touch-icon.png` генерирует `brand/build.py` репозитория `delosvod` (знак семьи Делосвода: три бара по возрастанию, акцент `#FF8D00`) — руками не править; тот же знак инлайном в `<h1>` (`.header-icon`).
+
 ## Команды
 
 ```bash

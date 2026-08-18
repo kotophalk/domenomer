@@ -100,7 +100,9 @@ body::before {
 }
 
 .header-icon {
-  font-size: 1.8rem;
+  width: 1em;
+  height: 1em;
+  flex: none;
 }
 
 .header-subtitle {
