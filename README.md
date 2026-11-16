@@ -93,6 +93,10 @@ python3 -m unittest discover -s tests -v
 * `deploy/` — Caddy-блоки и `update.sh`.
 * `tests/` — тесты.
 
+## Лицензия
+
+Код — [MIT](LICENSE). Данные Domain Rating к коду не относятся: они распространяются по лицензии Ahrefs (раздел ниже).
+
 ## Лицензия данных
 
 Domain Rating by [Ahrefs](https://ahrefs.com/). Использование DR-данных регулируется [Ahrefs Domain Rating License](https://ahrefs.com/legal/domain-rating-license): атрибуция обязательна, обход лимитов и сбор датасета запрещены — отсюда серверный лимит и короткий TTL кэша.
